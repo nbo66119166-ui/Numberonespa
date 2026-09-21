@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<!--
+  ============================================================
+  網上相簿 · 數據驅動模板（自原始單檔 index (3).html 提取整理）
+  ============================================================
+  · 所有內容（公告 / 分類 / 卡片 / 照片影片）都在同目錄的 data.js
+    一份數據裡維護，頁面自動渲染；日常維護只需修改 data.js 即可。
+  · 已移除：所有真實圖片影片（改為內嵌佔位圖，無外部請求）、
+    所有聯絡方式（WhatsApp / Telegram / 電話 / 懸浮按鈕）、
+    真實人物資料。
+  · 保留功能：sticky 公告、分類 Tab、卡片網格、燈箱（點擊放大、
+    上一張／下一張、鍵盤 ← → Esc）、響應式 3/4 欄。
+  · 每張卡片的「X 張相 / X 條片」由媒體數據自動統計，不需手寫。
+  ============================================================
+-->
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>網上相簿（數據驅動模板）</title>
+<style>
+  /* ---------- 設計變量：改主題色只需改這裡 ---------- */
+  :root {
+    --bg: #0d0d0d;
+    --card: #1a1a1a;
+    --pink: #ff4d8d;
+    --gold: #ffd700;
+    --text: #f0f0f0;
+    --muted: #aaa;
+    --border: #333;
+  }
+
+  /* ---------- 基礎重置 ---------- */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    padding-bottom: 24px;
+  }
+
+  /* ---------- 頂部公告區（吸頂） ---------- */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: linear-gradient(180deg, #1a0a12 0%, #0d0d0d 100%);
+    border-bottom: 2px solid var(--pink);
+    padding: 12px 16px 16px;
+    box-shadow: 0 4px 20px rgba(255,77,141,0.3);
+  }
+  .header h1 {
+    font-size: 1.4rem;
+    text-align: center;
+    color: var(--gold);
+    margin-bottom: 8px;
+    letter-spacing: 2px;
+  }
+  .notice {
+    background: rgba(255,77,141,0.1);
+    border: 1px solid var(--pink);
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 0.9rem;
+    text-align: center;
+  }
+  .notice p { margin: 4px 0; }
+
+  /* ---------- 分類 Tab ---------- */
+  .tabs {
+    display: flex;
+    gap: 8px;
+    margin: 16px 12px 8px;
+  }
+  .tab {
+    flex: 1;
+    padding: 12px;
+    text-align: center;
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab.active {
+    border-color: var(--pink);
+    background: rgba(255,77,141,0.15);
+    color: var(--pink);
+  }
+  .tab.cat-a { color: #ff9ecd; }
+  .tab.cat-b { color: #7dd3fc; }
+
+  /* ---------- 分類區塊顯示／隱藏 ---------- */
+  .section { display: none; padding: 0 12px 20px; }
+  .section.active { display: block; }
+
+  /* ---------- 卡片 ---------- */
+  .girl-card {
+    background: var(--card);
+    border-radius: 16px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .girl-header {
+    display: flex;
+    gap: 12px;
+    padding: 14px;
+    background: linear-gradient(90deg, rgba(255,77,141,0.15), transparent);
+    align-items: center;
+  }
+  .avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 12px;
+    object-fit: cover;
+    border: 2px solid var(--pink);
+    flex-shrink: 0;
+  }
+  .girl-info h2 {
+    font-size: 1.25rem;
+    color: var(--gold);
+    margin-bottom: 4px;
+  }
+  .girl-info .meta {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .girl-info .price {
+    color: var(--pink);
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-top: 4px;
+  }
+
+  /* 簡介框：保留換行，內容過高時獨立滾動 */
+  .desc-box {
+    font-size: 0.88rem;
+    white-space: pre-wrap;
+    color: #ddd;
+    max-height: 180px;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.3);
+    margin: 0 10px 10px;
+    border-radius: 8px;
+    padding: 10px;
+  }
+
+  /* ---------- 媒體網格 ---------- */
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    padding: 0 8px 8px;
+  }
+  .thumb {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 3/4;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #222;
+  }
+  .gallery img, .gallery video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: pointer;
+    display: block;
+  }
+  /* 佔位格：在數據中把 src 填上後會自動變成真圖／影片 */
+  .thumb-ph {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #1f1f1f;
+    border: 1px dashed #3a3a3a;
+    color: #666;
+    font-size: 0.72rem;
+    letter-spacing: 1px;
+    text-align: center;
+    padding: 4px;
+  }
+
+  /* 媒體類型標籤 */
+  .tag {
+    position: absolute;
+    left: 4px;
+    bottom: 4px;
+    font-size: 0.62rem;
+    padding: 2px 6px;
+    border-radius: 6px;
+    color: #fff;
+    pointer-events: none;
+    font-weight: 700;
+  }
+  .tag-text { background: rgba(0,0,0,0.7); }
+  .tag-video { background: rgba(255,77,141,0.85); }
+
+  /* ---------- 徽章 ---------- */
+  .new-badge {
+    display: inline-block;
+    background: var(--pink);
+    color: #fff;
+    font-size: 0.65rem;
+    padding: 1px 6px;
+    border-radius: 8px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .upd-badge {
+    display: inline-block;
+    background: #16a34a;
+    color: #fff;
+    font-size: 0.65rem;
+    padding: 1px 6px;
+    border-radius: 8px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  /* ---------- 說明列 ---------- */
+  .counts {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin: 4px 12px 10px;
+  }
+
+  /* ---------- 燈箱（點擊照片全屏放大） ---------- */
+  .lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.95);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+  }
+  .lightbox.active { display: flex; }
+  .lightbox img, .lightbox video {
+    max-width: 95vw;
+    max-height: 80vh;
+    object-fit: contain;
+    border-radius: 8px;
+  }
+  .lightbox .close {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    font-size: 2rem;
+    color: #fff;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  .lightbox .nav {
+    display: flex;
+    gap: 20px;
+    margin-top: 12px;
+  }
+  .lightbox .nav button {
+    background: var(--pink);
+    color: #fff;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+
+  /* ---------- 頁尾 ---------- */
+  footer {
+    text-align: center;
+    padding: 20px;
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+
+  /* ---------- 寬屏自適應 ---------- */
+  @media (min-width: 600px) {
+    .gallery { grid-template-columns: repeat(4, 1fr); }
+  }
+</style>
+</head><body>
+
+  <!-- 以下容器全部由 JS 依據 SITE_DATA 自動生成，一般不需手動修改 -->
+  <header class="header">
+    <h1 id="site-title"></h1>
+    <div class="notice" id="site-notice"></div>
+  </header>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="counts" id="counts"></div>
+  <div id="sections"></div>
+
+  <footer id="footer"></footer>
+
+  <!-- 燈箱 -->
+  <div class="lightbox" id="lightbox">
+    <button class="close" id="lb-close" aria-label="關閉">&times;</button>
+    <img id="lb-img" src="" alt="">
+    <video id="lb-video" src="" controls playsinline style="display:none"></video>
+    <div class="nav">
+      <button id="lb-prev">&#8249; 上一張</button>
+      <button id="lb-next">下一張 &#8250;</button>
+    </div>
+  </div>
+
+<script src="data.js"></script>
+<script>
+/* 數據已拆分至同目錄 data.js —— 日常維護只改 data.js，本檔不需再動 */
+
+/* =============================================================
+   ② 渲染區：以下為通用邏輯，一般不需修改
+   ============================================================= */
+
+/* 小工具：建立元素並用 textContent 寫文字（避免特殊字元被當成 HTML） */
+function h(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined && text !== null) node.textContent = text;
+  return node;
+}
+
+/* 渲染頂部標題與公告 */
+function renderHeader() {
+  const s = SITE_DATA.site;
+  document.getElementById("site-title").textContent = s.title;
+  document.title = s.title;
+  const notice = document.getElementById("site-notice");
+  (s.notices || []).forEach(line => notice.appendChild(h("p", null, line)));
+  const counts = document.getElementById("counts");
+  counts.textContent = (s.updateDate ? s.updateDate + " 更新 · " : "") + (s.hint || "");
+  const footer = document.getElementById("footer");
+  footer.appendChild(h("span", null, s.footerName));
+  footer.appendChild(h("br"));
+  footer.appendChild(h("span", null, "更新：" + (s.updateDate || "—")));
+}
+
+/* 渲染分類 Tab，並回傳目前第 1 個分類的 id */
+function renderTabs() {
+  const tabsBox = document.getElementById("tabs");
+  SITE_DATA.categories.forEach((cat, i) => {
+    const tabCls = i === 0 ? "cat-a" : "cat-b";   // 最多兩個分類配色；更多分類可自行擴充
+    const tab = h("div", "tab " + tabCls, cat.emoji + " " + cat.name);
+    tab.dataset.target = cat.id;
+    tab.addEventListener("click", () => showSection(cat.id));
+    tabsBox.appendChild(tab);
+  });
+  return SITE_DATA.categories[0] ? SITE_DATA.categories[0].id : null;
+}
+
+/* 單一媒體格：有 src 出真圖／影片，無 src 出佔位格 */
+function renderThumb(item) {
+  const thumb = h("div", "thumb");
+
+  if (item.type === "video") {
+    if (item.src) {
+      const video = document.createElement("video");
+      video.src = item.src;
+      video.preload = "none";
+      video.setAttribute("playsinline", "");   // iOS 不強制全屏
+      video.addEventListener("click", () => openLightbox(video));   // 點擊縮圖，進燈箱全屏播放
+      thumb.appendChild(video);
+      thumb.appendChild(h("span", "tag tag-video", item.tag || "影片"));
+    } else {
+      thumb.classList.add("thumb-ph");
+      thumb.appendChild(h("span", null, "影片佔位"));
+      thumb.appendChild(h("span", "tag tag-video", item.tag || "影片"));
+    }
+    return thumb;
+  }
+
+  /* photo / text 都以圖片呈現，text 額外帶左下角標籤 */
+  if (item.src) {
+    const img = document.createElement("img");
+    img.src = item.src;
+    img.alt = item.alt || "";
+    img.loading = "lazy";
+    img.addEventListener("click", () => openLightbox(img));
+    thumb.appendChild(img);
+  } else {
+    thumb.classList.add("thumb-ph");
+    thumb.appendChild(h("span", null, item.type === "text" ? "文字截圖佔位" : "照片佔位"));
+  }
+  if (item.type === "text") {
+    thumb.appendChild(h("span", "tag tag-text", item.tag || "文字 / 好評"));
+  }
+  return thumb;
+}
+
+/* 渲染單張卡片 */
+function renderCard(cat, card) {
+  const box = h("div", "girl-card");
+  if (card.id) box.id = card.id;
+
+  /* 頭部：頭像 + 名稱徽章 + 統計 + 價格 */
+  const head = h("div", "girl-header");
+  const avatar = document.createElement("img");
+  avatar.className = "avatar";
+  avatar.src = card.avatar || PH_AVATAR;
+  avatar.alt = card.name || "";
+  avatar.loading = "lazy";
+  head.appendChild(avatar);
+
+  const info = h("div", "girl-info");
+  const title = h("h2");
+  title.appendChild(document.createTextNode(card.name));
+  (card.badges || []).forEach(b => {
+    title.appendChild(h("span", b.type === "upd" ? "upd-badge" : "new-badge", b.text));
+  });
+  info.appendChild(title);
+
+  /* 自動統計：圖片 = photo + text；影片 = video */
+  const media = card.media || [];
+  const imgN = media.filter(m => m.type !== "video").length;
+  const vidN = media.filter(m => m.type === "video").length;
+  info.appendChild(h("div", "meta", cat.name + " · " + imgN + " 張相 · " + vidN + " 條片"));
+  if (card.price) info.appendChild(h("div", "price", card.price));
+  head.appendChild(info);
+  box.appendChild(head);
+
+  /* 簡介（保留換行） */
+  if (card.desc) box.appendChild(h("div", "desc-box", card.desc));
+
+  /* 媒體網格 */
+  const gallery = h("div", "gallery");
+  media.forEach(item => gallery.appendChild(renderThumb(item)));
+  box.appendChild(gallery);
+
+  return box;
+}
+
+/* 渲染所有分類區塊 */
+function renderSections() {
+  const root = document.getElementById("sections");
+  SITE_DATA.categories.forEach(cat => {
+    const sec = h("div", "section");
+    sec.id = cat.id;
+    cat.cards.forEach(card => sec.appendChild(renderCard(cat, card)));
+    root.appendChild(sec);
+  });
+}
+
+/* =============================================================
+   ③ 交互邏輯：Tab 切換 + 燈箱
+   ============================================================= */
+function showSection(id) {
+  document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  const tab = document.querySelector('.tab[data-target="' + id + '"]');
+  if (tab) tab.classList.add("active");
+  window.scrollTo({ top: document.querySelector(".tabs").offsetTop - 10, behavior: "smooth" });
+}
+
+let currentMedia = [];   // 燈箱瀏覽序列（img 與 video 混合）
+let currentIdx = 0;
+const lightbox = document.getElementById("lightbox");
+const lbImg = document.getElementById("lb-img");
+const lbVideo = document.getElementById("lb-video");
+
+/* 依當前項目類型切換顯示 img 或 video */
+function showCurrent() {
+  const m = currentMedia[currentIdx];
+  if (!m) return;
+  if (m.tagName === "VIDEO") {
+    lbImg.style.display = "none";
+    lbVideo.style.display = "";
+    lbVideo.src = m.src;
+    lbVideo.play().catch(() => {});   // 自動播放；被瀏覽器政策攔截時靜默忽略
+  } else {
+    lbVideo.pause();
+    lbVideo.removeAttribute("src");
+    lbVideo.style.display = "none";
+    lbImg.style.display = "";
+    lbImg.src = m.src;
+  }
+}
+
+function openLightbox(el) {
+  const gallery = el.closest(".gallery");
+  currentMedia = Array.from(gallery.querySelectorAll("img, video"));
+  currentIdx = currentMedia.indexOf(el);
+  showCurrent();
+  lightbox.classList.add("active");
+  document.body.style.overflow = "hidden";
+}
+function closeLightbox() {
+  lbVideo.pause();
+  lbVideo.removeAttribute("src");
+  lightbox.classList.remove("active");
+  document.body.style.overflow = "";
+}
+function prevImg() {
+  if (currentMedia.length === 0) return;
+  currentIdx = (currentIdx - 1 + currentMedia.length) % currentMedia.length;
+  showCurrent();
+}
+function nextImg() {
+  if (currentMedia.length === 0) return;
+  currentIdx = (currentIdx + 1) % currentMedia.length;
+  showCurrent();
+}
+
+lightbox.addEventListener("click", e => { if (e.target === lightbox) closeLightbox(); });
+document.getElementById("lb-close").addEventListener("click", closeLightbox);
+document.getElementById("lb-prev").addEventListener("click", prevImg);
+document.getElementById("lb-next").addEventListener("click", nextImg);
+document.addEventListener("keydown", e => {
+  if (!lightbox.classList.contains("active")) return;
+  if (e.key === "Escape") closeLightbox();
+  if (e.key === "ArrowLeft") prevImg();
+  if (e.key === "ArrowRight") nextImg();
+});
+
+/* =============================================================
+   ④ 啟動
+   ============================================================= */
+if (typeof SITE_DATA === "undefined") {
+  document.getElementById("sections").innerHTML =
+    '<p style="color:#f66;padding:2rem;text-align:center">找不到 data.js —— 請確認它與 index.html 位於同一資料夾。</p>';
+} else {
+  renderHeader();
+  const firstId = renderTabs();
+  renderSections();
+  if (firstId) showSection(firstId);
+}
+</script>
+</body>
+</html>
